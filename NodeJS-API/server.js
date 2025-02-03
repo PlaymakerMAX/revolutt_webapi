@@ -15,7 +15,7 @@ app.get('/api', (req, res) => {
     res.send('API is working'); // Send a response to confirm the API is working
 });
 
-app.get("/api/data", (req, res) => {
+app.get("/api/auth", (req, res) => {
     db.query("SELECT * FROM your_table", (err, results) => { // Replace 'your_table' with your actual table name
         if (err) {
             res.status(500).send(err); // Send a server error status code if there's an error
@@ -24,6 +24,8 @@ app.get("/api/data", (req, res) => {
         }
     });
 });
+
+
 
 // Verify that the PORT environment variable has been set
 const PORT = process.env.STATUS === 'development' ? process.env.DEV_PORT : process.env.PROD_PORT;
