@@ -4,6 +4,7 @@ const bodyParser = require('body-parser'); // Pour parser le corps des requêtes
 const cors = require('cors'); // Pour activer CORS
 const crypto = require('crypto'); // Pour les opérations de chiffrement/déchiffrement
 const jwt = require('jsonwebtoken'); // Pour générer et vérifier des tokens JWT
+const bcrypt = require('bcrypt'); // Pour comparer les mots de passe hachés
 const db = require('./database'); // Module de connexion à la base de données
 
 const app = express();
@@ -86,7 +87,7 @@ app.get('/api', (req, res) => {
   res.send('API is working');
 });
 
-// Exemple de route pour récupérer des données (à adapter selon vos besoins)
+// Exemple de route pour récupérer des utilisateurs (à adapter selon vos besoins)
 app.get('/api/auth', (req, res) => {
   db.query("SELECT * FROM utilisateurs", (err, results) => {
     if (err) {
@@ -127,22 +128,23 @@ app.post('/api/login', (req, res) => {
     }
     const user = results[0];
 
-    // Pour la démo, on compare les mots de passe en clair.
-    // En production, utilisez bcrypt pour comparer des mots de passe hachés.
-    if (password !== user.mot_de_passe_hache) {
-      logLoginAttempt(username, ip, false, "Mot de passe invalide");
-      return res.status(401).send({ error: "Mot de passe invalide" });
-    }
+    // Comparaison du mot de passe avec bcrypt pour être cohérent avec PHP (password_hash)
+    bcrypt.compare(password, user.mot_de_passe_hache, (err, isMatch) => {
+      if (err || !isMatch) {
+        logLoginAttempt(username, ip, false, "Mot de passe invalide");
+        return res.status(401).send({ error: "Mot de passe invalide" });
+      }
 
-    // Si authentification réussie, enregistrer la tentative et générer un token
-    logLoginAttempt(username, ip, true, "Connexion réussie");
+      logLoginAttempt(username, ip, true, "Connexion réussie");
 
-    const token = jwt.sign(
-      { id: user.identifiant, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-    res.status(200).send({ token });
+      // Génération d'un token JWT valable 1 heure
+      const token = jwt.sign(
+        { id: user.identifiant, role: user.role },
+        JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      res.status(200).send({ token });
+    });
   });
 });
 
@@ -154,7 +156,7 @@ function verifyToken(req, res, next) {
   if (!authHeader) {
     return res.status(401).send({ error: "Token manquant" });
   }
-  // On attend le format "Bearer <token>"
+  // Format attendu : "Bearer <token>"
   const token = authHeader.split(' ')[1];
   if (!token) {
     return res.status(401).send({ error: "Token mal formaté" });
@@ -188,7 +190,7 @@ app.post('/api/transaction', verifyToken, (req, res) => {
     return res.status(400).send({ error: "Paramètres manquants" });
   }
 
-  // Ici, nfcData est le token NFC lu sur la carte du payeur.
+  // nfcData correspond ici au token NFC lu sur la carte du payeur.
   const nfcToken = nfcData;
 
   // Récupérer le compte du payeur en fonction du token NFC
@@ -208,7 +210,7 @@ app.post('/api/transaction', verifyToken, (req, res) => {
     }
     const payer = payerResults[0];
 
-    // Vérifier que le code PIN fourni correspond à celui stocké pour le compte payeur
+    // Vérifier que le code PIN fourni correspond à celui stocké dans le compte payeur
     if (pin !== payer.code_pin) {
       return res.status(401).send({ error: "Code PIN invalide" });
     }
@@ -272,7 +274,7 @@ app.post('/api/transaction', verifyToken, (req, res) => {
             return res.status(500).send({ error: "Échec de la mise à jour du compte commerçant" });
           }
 
-          // (Optionnel) Enregistrer l'opération dans l'historique des transactions du compte
+          // (Optionnel) Vous pouvez enregistrer l'opération dans l'historique des transactions du compte ici
           return res.status(200).send({ message: "Transaction réalisée avec succès" });
         });
       });
