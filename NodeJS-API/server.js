@@ -87,17 +87,6 @@ app.get('/api', (req, res) => {
   res.send('API is working');
 });
 
-// Exemple de route pour récupérer des utilisateurs (à adapter selon vos besoins)
-app.get('/api/auth', (req, res) => {
-  db.query("SELECT * FROM utilisateurs", (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-    } else {
-      res.status(200).send(results);
-    }
-  });
-});
-
 /* ============================================================
    Authentification via JWT et gestion des login_attempts
    ============================================================ */
